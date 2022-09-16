@@ -43,6 +43,7 @@ in pkgs.mkShell {
   nativeBuildInputs = [
     pkgs.rust-bin.stable.latest.default
     #(with-nightly pkgs.cargo-fuzz)
+    pkgs.cargo-criterion
 
     # To update the versions of tools installed in this development
     # environment, run `niv update`.
