@@ -198,9 +198,15 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
     }
 }
 
-pub fn sais(s: &[u8]) -> Vec<usize> {
+pub fn sais<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(s: &[Char]) -> Vec<usize> {
     let mut sa = vec![usize::MAX; s.len()];
-    sais_inner(s, &mut sa, s.iter().copied().max().unwrap_or(0).into());
+    let zero = 0usize.try_into().unwrap_or_else(|_| {
+        panic!(
+            "expected a zero-equivalent for {}",
+            std::any::type_name::<Char>()
+        )
+    });
+    sais_inner(s, &mut sa, s.iter().copied().max().unwrap_or(zero).into());
     sa
 }
 
