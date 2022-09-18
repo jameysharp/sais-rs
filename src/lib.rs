@@ -60,6 +60,7 @@ fn induce_sa_l<Char: Copy + Into<usize>>(
     sa: &mut [usize],
     s: &[Char],
     bkt: &mut [usize],
+    only_lms: bool,
 ) {
     get_buckets(s, bkt, false);
 
@@ -76,6 +77,9 @@ fn induce_sa_l<Char: Copy + Into<usize>>(
         if sa[i].wrapping_add(1) >= 2 {
             let j = sa[i] - 1;
             if !t[j] {
+                if only_lms {
+                    sa[i] = usize::MAX;
+                }
                 let bin = &mut bkt[s[j].into()];
                 sa[*bin] = j;
                 *bin += 1;
@@ -89,12 +93,16 @@ fn induce_sa_s<Char: Copy + Into<usize>>(
     sa: &mut [usize],
     s: &[Char],
     bkt: &mut [usize],
+    only_lms: bool,
 ) {
     get_buckets(s, bkt, true);
     for i in (0..sa.len()).rev() {
         if sa[i].wrapping_add(1) >= 2 {
             let j = sa[i] - 1;
             if t[j] {
+                if only_lms {
+                    sa[i] = usize::MAX;
+                }
                 let bin = &mut bkt[s[j].into()];
                 *bin -= 1;
                 sa[*bin] = j;
@@ -115,13 +123,14 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
         let mut bkt = vec![0; k + 1];
         get_buckets(s, &mut bkt, true);
         init_sa(&t, sa, s, &mut bkt);
-        induce_sa_l(&t, sa, s, &mut bkt);
-        induce_sa_s(&t, sa, s, &mut bkt);
+        induce_sa_l(&t, sa, s, &mut bkt, true);
+        induce_sa_s(&t, sa, s, &mut bkt, true);
     }
 
     let mut n1 = 0;
     for i in 0..sa.len() {
-        if is_lms(&t, sa[i]) {
+        if sa[i].wrapping_add(1) >= 2 {
+            debug_assert!(is_lms(&t, sa[i]), "i={i}, n1={n1}, sa={sa:?}, t={t:?}");
             sa[n1] = sa[i];
             n1 += 1;
         }
@@ -193,8 +202,8 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
             sa[*bin] = j;
         }
 
-        induce_sa_l(&t, sa, s, &mut bkt);
-        induce_sa_s(&t, sa, s, &mut bkt);
+        induce_sa_l(&t, sa, s, &mut bkt, false);
+        induce_sa_s(&t, sa, s, &mut bkt, false);
     }
 }
 
