@@ -1,23 +1,27 @@
-use bitvec::vec::BitVec;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
-fn classify<Char: Copy + Ord>(s: &[Char]) -> BitVec {
-    let mut t = BitVec::new();
-    t.resize(s.len(), false);
-
-    let mut next_is_s = true;
-    let mut next_c = None;
-    for (mut is_s, &c) in t.iter_mut().zip(s).rev() {
-        next_is_s = match Some(c).cmp(&next_c) {
-            Ordering::Less => true,
-            Ordering::Equal => next_is_s,
-            Ordering::Greater => false,
-        };
-        next_c = Some(c);
-        is_s.set(next_is_s);
+fn get_lms_starts<Char: Copy + Ord>(s: &[Char]) -> Vec<usize> {
+    let mut result = Vec::new();
+    if let Some((&c, s)) = s.split_last() {
+        // The last character is always greater than the empty suffix.
+        let mut next_is_s = false;
+        let mut next_c = c;
+        for (idx, &c) in s.iter().enumerate().rev() {
+            let is_s = match c.cmp(&next_c) {
+                Ordering::Less => true,
+                Ordering::Equal => next_is_s,
+                Ordering::Greater => false,
+            };
+            next_c = c;
+            if !is_s && next_is_s {
+                result.push(idx + 1);
+            }
+            next_is_s = is_s;
+        }
+        result.reverse();
     }
-
-    t
+    result
 }
 
 /// Find the start or end of each bucket.
@@ -40,10 +44,6 @@ fn get_buckets<Char: Copy + Into<usize>>(s: &[Char], bkt: &mut [usize], end: boo
             sum += cur;
         }
     }
-}
-
-fn is_lms(t: &BitVec, i: usize) -> bool {
-    i > 0 && t[i] && !t[i - 1]
 }
 
 fn induce_sa_l<Char: Copy + Ord + Into<usize>>(
@@ -105,18 +105,16 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
     k: usize,
 ) {
     sa.fill(usize::MAX);
-    let t = classify(s);
+    let lms_starts = get_lms_starts(s);
 
     {
         let mut bkt = vec![0; k + 1];
         get_buckets(s, &mut bkt, true);
 
-        for (idx, &c) in s.iter().enumerate() {
-            if is_lms(&t, idx) {
-                let bin = &mut bkt[c.into()];
-                *bin -= 1;
-                sa[*bin] = idx;
-            }
+        for &idx in lms_starts.iter() {
+            let bin = &mut bkt[s[idx].into()];
+            *bin -= 1;
+            sa[*bin] = idx;
         }
 
         induce_sa_l(sa, s, &mut bkt, true);
@@ -126,34 +124,37 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
     let mut n1 = 0;
     for i in 0..sa.len() {
         if sa[i].wrapping_add(1) >= 2 {
-            debug_assert!(is_lms(&t, sa[i]), "i={i}, n1={n1}, sa={sa:?}, t={t:?}");
             sa[n1] = sa[i];
             n1 += 1;
         }
     }
     sa[n1..].fill(usize::MAX);
 
-    let mut name = 0;
+    let mut next_start = s.len();
+    let length = |&start| {
+        let length = next_start - start;
+        next_start = start;
+        (start, length)
+    };
+    let lms_lengths: HashMap<_, _> = lms_starts.iter().rev().map(length).collect();
+
+    let mut name = 1;
     let mut prev = usize::MAX;
     for i in 0..n1 {
         let pos = sa[i];
-        for d in 0.. {
-            if prev == usize::MAX
-                || pos.max(prev) + d == s.len()
-                || s[pos + d] != s[prev + d]
-                || t[pos + d] != t[prev + d]
-            {
+        if prev != usize::MAX {
+            let end = pos + lms_lengths[&pos];
+            let prev_end = prev + lms_lengths[&prev];
+            if end.max(prev_end) == s.len() || s[pos..=end] != s[prev..=prev_end] {
                 name += 1;
-                prev = pos;
-                break;
-            }
-            if d > 0 && (is_lms(&t, pos + d) || is_lms(&t, prev + d)) {
-                break;
             }
         }
+        prev = pos;
         let pos = pos / 2;
         sa[n1 + pos] = name - 1;
     }
+
+    drop(lms_lengths);
 
     let mut j = sa.len();
     for i in (n1..sa.len()).rev() {
@@ -172,16 +173,8 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
         }
     }
 
-    let mut j = sa.len() - n1;
-    for i in 1..sa.len() {
-        if is_lms(&t, i) {
-            sa[j] = i.try_into().unwrap();
-            j += 1;
-        }
-    }
-
     for i in 0..n1 {
-        sa[i] = sa[sa.len() - n1 + sa[i]];
+        sa[i] = lms_starts[sa[i]];
     }
     sa[n1..].fill(usize::MAX);
 
