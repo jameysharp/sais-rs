@@ -55,8 +55,7 @@ fn init_sa<Char: Copy + Into<usize>>(t: &BitVec, sa: &mut [usize], s: &[Char], b
     }
 }
 
-fn induce_sa_l<Char: Copy + Into<usize>>(
-    t: &BitVec,
+fn induce_sa_l<Char: Copy + Ord + Into<usize>>(
     sa: &mut [usize],
     s: &[Char],
     bkt: &mut [usize],
@@ -67,7 +66,6 @@ fn induce_sa_l<Char: Copy + Into<usize>>(
     // unroll once for implicit end-of-string marker
     if !s.is_empty() {
         let j = s.len() - 1;
-        debug_assert!(!t[j]);
         let bin = &mut bkt[s[j].into()];
         sa[*bin] = j;
         *bin += 1;
@@ -76,7 +74,7 @@ fn induce_sa_l<Char: Copy + Into<usize>>(
     for i in 0..sa.len() {
         if sa[i].wrapping_add(1) >= 2 {
             let j = sa[i] - 1;
-            if !t[j] {
+            if s[j] >= s[j + 1] {
                 if only_lms {
                     sa[i] = usize::MAX;
                 }
@@ -88,8 +86,7 @@ fn induce_sa_l<Char: Copy + Into<usize>>(
     }
 }
 
-fn induce_sa_s<Char: Copy + Into<usize>>(
-    t: &BitVec,
+fn induce_sa_s<Char: Copy + Ord + Into<usize>>(
     sa: &mut [usize],
     s: &[Char],
     bkt: &mut [usize],
@@ -99,7 +96,7 @@ fn induce_sa_s<Char: Copy + Into<usize>>(
     for i in (0..sa.len()).rev() {
         if sa[i].wrapping_add(1) >= 2 {
             let j = sa[i] - 1;
-            if t[j] {
+            if s[j] <= s[j + 1] {
                 if only_lms {
                     sa[i] = usize::MAX;
                 }
@@ -123,8 +120,8 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
         let mut bkt = vec![0; k + 1];
         get_buckets(s, &mut bkt, true);
         init_sa(&t, sa, s, &mut bkt);
-        induce_sa_l(&t, sa, s, &mut bkt, true);
-        induce_sa_s(&t, sa, s, &mut bkt, true);
+        induce_sa_l(sa, s, &mut bkt, true);
+        induce_sa_s(sa, s, &mut bkt, true);
     }
 
     let mut n1 = 0;
@@ -202,8 +199,8 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
             sa[*bin] = j;
         }
 
-        induce_sa_l(&t, sa, s, &mut bkt, false);
-        induce_sa_s(&t, sa, s, &mut bkt, false);
+        induce_sa_l(sa, s, &mut bkt, false);
+        induce_sa_s(sa, s, &mut bkt, false);
     }
 }
 
