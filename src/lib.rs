@@ -1,8 +1,8 @@
 use bitvec::vec::BitVec;
 use std::cmp::Ordering;
 
-fn classify<Char: Copy + Ord>(t: &mut BitVec, s: &[Char]) {
-    t.clear();
+fn classify<Char: Copy + Ord>(s: &[Char]) -> BitVec {
+    let mut t = BitVec::new();
     t.resize(s.len(), false);
 
     let mut next_is_s = true;
@@ -16,6 +16,8 @@ fn classify<Char: Copy + Ord>(t: &mut BitVec, s: &[Char]) {
         next_c = Some(c);
         is_s.set(next_is_s);
     }
+
+    t
 }
 
 /// Find the start or end of each bucket.
@@ -42,17 +44,6 @@ fn get_buckets<Char: Copy + Into<usize>>(s: &[Char], bkt: &mut [usize], end: boo
 
 fn is_lms(t: &BitVec, i: usize) -> bool {
     i > 0 && t[i] && !t[i - 1]
-}
-
-fn init_sa<Char: Copy + Into<usize>>(t: &BitVec, sa: &mut [usize], s: &[Char], bkt: &mut [usize]) {
-    sa.fill(usize::MAX);
-    for (idx, &c) in s.iter().enumerate() {
-        if is_lms(&t, idx) {
-            let bin = &mut bkt[c.into()];
-            *bin -= 1;
-            sa[*bin] = idx;
-        }
-    }
 }
 
 fn induce_sa_l<Char: Copy + Ord + Into<usize>>(
@@ -113,13 +104,21 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
     sa: &mut [usize],
     k: usize,
 ) {
-    let mut t = BitVec::new();
-    classify(&mut t, s);
+    sa.fill(usize::MAX);
+    let t = classify(s);
 
     {
         let mut bkt = vec![0; k + 1];
         get_buckets(s, &mut bkt, true);
-        init_sa(&t, sa, s, &mut bkt);
+
+        for (idx, &c) in s.iter().enumerate() {
+            if is_lms(&t, idx) {
+                let bin = &mut bkt[c.into()];
+                *bin -= 1;
+                sa[*bin] = idx;
+            }
+        }
+
         induce_sa_l(sa, s, &mut bkt, true);
         induce_sa_s(sa, s, &mut bkt, true);
     }
@@ -173,23 +172,22 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
         }
     }
 
+    let mut j = sa.len() - n1;
+    for i in 1..sa.len() {
+        if is_lms(&t, i) {
+            sa[j] = i.try_into().unwrap();
+            j += 1;
+        }
+    }
+
+    for i in 0..n1 {
+        sa[i] = sa[sa.len() - n1 + sa[i]];
+    }
+    sa[n1..].fill(usize::MAX);
+
     {
         let mut bkt = vec![0; k + 1];
         get_buckets(s, &mut bkt, true);
-
-        let mut j = sa.len() - n1;
-        for i in 1..sa.len() {
-            if is_lms(&t, i) {
-                sa[j] = i.try_into().unwrap();
-                j += 1;
-            }
-        }
-
-        for i in 0..n1 {
-            sa[i] = sa[sa.len() - n1 + sa[i]];
-        }
-
-        sa[n1..].fill(usize::MAX);
 
         for i in (0..n1).rev() {
             let j = sa[i];
