@@ -14,7 +14,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
 
     let max_shift = 20;
-    let input: Vec<u8> = xorshift.flat_map(u32::to_le_bytes).take(1 << max_shift).collect();
+    let input: Vec<u8> = xorshift
+        .flat_map(u32::to_le_bytes)
+        .take(1 << max_shift)
+        .collect();
 
     let mut group = c.benchmark_group("sais u8");
     for size in (10..=max_shift).map(|shift| 1 << shift) {
