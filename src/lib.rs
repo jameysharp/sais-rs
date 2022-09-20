@@ -63,11 +63,11 @@ fn induce_sa_l<Char: Copy + Ord + Into<usize>>(
     }
 
     for i in 0..sa.len() {
-        if sa[i].wrapping_add(1) >= 2 {
+        if sa[i] != 0 {
             let j = sa[i] - 1;
             if s[j] >= s[j + 1] {
                 if only_lms {
-                    sa[i] = usize::MAX;
+                    sa[i] = 0;
                 }
                 let bin = &mut bkt[s[j].into()];
                 sa[*bin] = j;
@@ -85,11 +85,11 @@ fn induce_sa_s<Char: Copy + Ord + Into<usize>>(
 ) {
     get_buckets(s, bkt, true);
     for i in (0..sa.len()).rev() {
-        if sa[i].wrapping_add(1) >= 2 {
+        if sa[i] != 0 {
             let j = sa[i] - 1;
             if s[j] <= s[j + 1] {
                 if only_lms {
-                    sa[i] = usize::MAX;
+                    sa[i] = 0;
                 }
                 let bin = &mut bkt[s[j].into()];
                 *bin -= 1;
@@ -104,7 +104,6 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
     sa: &mut [usize],
     k: usize,
 ) {
-    sa.fill(usize::MAX);
     let lms_starts = get_lms_starts(s);
 
     {
@@ -123,60 +122,68 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
 
     let mut n1 = 0;
     for i in 0..sa.len() {
-        if sa[i].wrapping_add(1) >= 2 {
-            sa[n1] = sa[i];
+        if sa[i] != 0 {
+            let lms = sa[i];
+            sa[i] = 0;
+            sa[n1] = lms;
             n1 += 1;
         }
     }
-    sa[n1..].fill(usize::MAX);
 
-    let mut next_start = s.len();
-    let length = |&start| {
-        let length = next_start - start;
-        next_start = start;
-        (start, length)
-    };
-    let lms_lengths: HashMap<_, _> = lms_starts.iter().rev().map(length).collect();
+    let (sa1, s1) = sa.split_at_mut(n1);
 
-    let mut name = 1;
-    let mut prev = usize::MAX;
-    for i in 0..n1 {
-        let pos = sa[i];
-        if prev != usize::MAX {
+    let mut name = 0;
+    if let Some((&pos, sa1)) = sa1.split_first() {
+        let mut next_start = s.len();
+        let length = |&start| {
+            let length = next_start - start;
+            next_start = start;
+            (start, length)
+        };
+        let lms_lengths: HashMap<_, _> = lms_starts.iter().rev().map(length).collect();
+
+        name = 1;
+        let mut prev = pos;
+        s1[pos / 2] = name;
+        for &pos in sa1.iter() {
             let end = pos + lms_lengths[&pos];
             let prev_end = prev + lms_lengths[&prev];
             if end.max(prev_end) == s.len() || s[pos..=end] != s[prev..=prev_end] {
                 name += 1;
             }
-        }
-        prev = pos;
-        let pos = pos / 2;
-        sa[n1 + pos] = name - 1;
-    }
-
-    drop(lms_lengths);
-
-    let mut j = sa.len();
-    for i in (n1..sa.len()).rev() {
-        if sa[i] != usize::MAX {
-            j -= 1;
-            sa[j] = sa[i];
+            prev = pos;
+            s1[pos / 2] = name;
         }
     }
+
+    let mut j = 0;
+    for i in 0..s1.len() {
+        if s1[i] != 0 {
+            let name = s1[i] - 1;
+            s1[i] = 0;
+            s1[j] = name;
+            j += 1;
+        }
+    }
+
+    debug_assert_eq!(j, n1);
+    let s1 = &mut s1[..n1];
 
     if name < n1 {
-        let (sa1, s1) = sa.split_at_mut(sa.len() - n1);
-        sais_inner(s1, &mut sa1[..n1], name - 1);
+        sa1.fill(0);
+        sais_inner(s1, sa1, name - 1);
     } else {
-        for i in 0..n1 {
-            sa[sa[sa.len() - n1 + i]] = i;
+        debug_assert_eq!(name, n1);
+        for (i, &name) in s1.iter().enumerate() {
+            sa1[name] = i;
         }
     }
 
-    for i in 0..n1 {
-        sa[i] = lms_starts[sa[i]];
+    s1.fill(0);
+
+    for lms in sa1 {
+        *lms = lms_starts[*lms];
     }
-    sa[n1..].fill(usize::MAX);
 
     {
         let mut bkt = vec![0; k + 1];
@@ -184,7 +191,7 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
 
         for i in (0..n1).rev() {
             let j = sa[i];
-            sa[i] = usize::MAX;
+            sa[i] = 0;
             let bin = &mut bkt[s[j].into()];
             *bin -= 1;
             sa[*bin] = j;
@@ -196,7 +203,7 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
 }
 
 pub fn sais<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(s: &[Char]) -> Vec<usize> {
-    let mut sa = vec![usize::MAX; s.len()];
+    let mut sa = vec![0; s.len()];
     let zero = 0usize.try_into().unwrap_or_else(|_| {
         panic!(
             "expected a zero-equivalent for {}",
