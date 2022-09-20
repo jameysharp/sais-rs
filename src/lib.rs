@@ -200,7 +200,7 @@ pub fn sais_utf8(s: &str) -> Vec<usize> {
     let bytes = s.as_bytes();
     let mut sa = sais(bytes);
     let start = sa.partition_point(|&i| bytes[i] < 0x80);
-    let end = sa.partition_point(|&i| bytes[i] < 0xC0);
-    sa.drain(start..end);
+    let length = sa[start..].partition_point(|&i| bytes[i] < 0xC0);
+    sa.drain(start..start + length);
     sa
 }
