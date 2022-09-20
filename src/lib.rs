@@ -156,33 +156,30 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
         }
     }
 
-    let mut j = 0;
-    for i in 0..s1.len() {
-        if s1[i] != 0 {
-            let name = s1[i] - 1;
-            s1[i] = 0;
-            s1[j] = name;
-            j += 1;
-        }
-    }
-
-    debug_assert_eq!(j, n1);
-    let s1 = &mut s1[..n1];
-
     if name < n1 {
+        let mut j = 0;
+        for i in 0..s1.len() {
+            if s1[i] != 0 {
+                let name = s1[i] - 1;
+                s1[i] = 0;
+                s1[j] = name;
+                j += 1;
+            }
+        }
+
+        debug_assert_eq!(j, n1);
+        let s1 = &mut s1[..n1];
+
         sa1.fill(0);
         sais_inner(s1, sa1, name - 1);
+        s1.fill(0);
+
+        for lms in sa1 {
+            *lms = lms_starts[*lms];
+        }
     } else {
         debug_assert_eq!(name, n1);
-        for (i, &name) in s1.iter().enumerate() {
-            sa1[name] = i;
-        }
-    }
-
-    s1.fill(0);
-
-    for lms in sa1 {
-        *lms = lms_starts[*lms];
+        s1.fill(0);
     }
 
     {
