@@ -24,8 +24,8 @@ fn get_lms_starts<Char: Copy + Ord>(s: &[Char]) -> Vec<usize> {
     result
 }
 
-/// Find the start or end of each bucket.
-fn get_buckets<Char: Copy + Into<usize>>(s: &[Char], bkt: &mut [usize], end: bool) {
+/// Find the end of each bucket.
+fn get_buckets<Char: Copy + Into<usize>>(s: &[Char], bkt: &mut [usize]) {
     // Compute the size of each bucket.
     bkt.fill(0);
     for &c in s {
@@ -34,15 +34,8 @@ fn get_buckets<Char: Copy + Into<usize>>(s: &[Char], bkt: &mut [usize], end: boo
 
     let mut sum = 0;
     for bin in bkt.iter_mut() {
-        let cur = *bin;
-
-        if end {
-            sum += cur;
-            *bin = sum;
-        } else {
-            *bin = sum;
-            sum += cur;
-        }
+        sum += *bin;
+        *bin = sum;
     }
 }
 
@@ -52,7 +45,16 @@ fn induce_sort<Char: Copy + Ord + Into<usize>>(
     bkt: &mut [usize],
     only_lms: bool,
 ) {
-    get_buckets(s, bkt, false);
+    let mut start = std::mem::replace(&mut bkt[0], 0);
+    for bin in bkt[1..].iter_mut() {
+        // Either the next bin is full, in which case it already points to its start; or there's at
+        // least one unfilled position at the start of that bin and we just have to find it.
+        while start < *bin && sa[start] != 0 {
+            start += 1;
+        }
+        std::mem::swap(&mut start, bin);
+    }
+    debug_assert_eq!(start, sa.len());
 
     // unroll once for implicit end-of-string marker
     if !s.is_empty() {
@@ -76,7 +78,7 @@ fn induce_sort<Char: Copy + Ord + Into<usize>>(
         }
     }
 
-    get_buckets(s, bkt, true);
+    get_buckets(s, bkt);
     for i in (0..sa.len()).rev() {
         if sa[i] != 0 {
             let j = sa[i] - 1;
@@ -101,7 +103,7 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
 
     {
         let mut bkt = vec![0; k + 1];
-        get_buckets(s, &mut bkt, true);
+        get_buckets(s, &mut bkt);
 
         for &idx in lms_starts.iter() {
             let bin = &mut bkt[s[idx].into()];
@@ -176,7 +178,7 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
 
     {
         let mut bkt = vec![0; k + 1];
-        get_buckets(s, &mut bkt, true);
+        get_buckets(s, &mut bkt);
 
         for i in (0..n1).rev() {
             let j = sa[i];
