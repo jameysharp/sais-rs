@@ -46,7 +46,7 @@ fn get_buckets<Char: Copy + Into<usize>>(s: &[Char], bkt: &mut [usize], end: boo
     }
 }
 
-fn induce_sa_l<Char: Copy + Ord + Into<usize>>(
+fn induce_sort<Char: Copy + Ord + Into<usize>>(
     sa: &mut [usize],
     s: &[Char],
     bkt: &mut [usize],
@@ -75,14 +75,7 @@ fn induce_sa_l<Char: Copy + Ord + Into<usize>>(
             }
         }
     }
-}
 
-fn induce_sa_s<Char: Copy + Ord + Into<usize>>(
-    sa: &mut [usize],
-    s: &[Char],
-    bkt: &mut [usize],
-    only_lms: bool,
-) {
     get_buckets(s, bkt, true);
     for i in (0..sa.len()).rev() {
         if sa[i] != 0 {
@@ -116,8 +109,7 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
             sa[*bin] = idx;
         }
 
-        induce_sa_l(sa, s, &mut bkt, true);
-        induce_sa_s(sa, s, &mut bkt, true);
+        induce_sort(sa, s, &mut bkt, true);
     }
 
     let mut n1 = 0;
@@ -194,8 +186,7 @@ fn sais_inner<Char: Copy + Ord + Into<usize> + TryFrom<usize>>(
             sa[*bin] = j;
         }
 
-        induce_sa_l(sa, s, &mut bkt, false);
-        induce_sa_s(sa, s, &mut bkt, false);
+        induce_sort(sa, s, &mut bkt, false);
     }
 }
 
